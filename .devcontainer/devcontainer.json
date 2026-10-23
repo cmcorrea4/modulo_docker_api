@@ -1,0 +1,26 @@
+{
+  "name": "Módulo 12 · Docker + API de sensación térmica",
+  "image": "mcr.microsoft.com/devcontainers/python:2-3.13-trixie",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "hostRequirements": {
+    "cpus": 2
+  },
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": {
+      "label": "API sensación térmica",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "pip install -r app/requirements.txt",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  }
+}
