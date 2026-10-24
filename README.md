@@ -9,7 +9,7 @@ En este laboratorio llevas el modelo de sensación térmica que entrenaste en Co
 | 1 | Colab | Entrenar y exportar el modelo |
 | 2 | Codespaces | [Probar la API sin Docker](#paso-2--probar-la-api-sin-docker) |
 | 3 | Codespaces | [Escribir el Dockerfile, construir la imagen y ejecutar el contenedor](#paso-3--del-código-al-contenedor) |
-| 4 | Nube | Publicar la imagen |
+| 4 | GitHub | [Publicar la imagen y probarla en otra máquina](#paso-4--tu-imagen-en-cualquier-máquina) |
 
 ## Estructura del repositorio
 
@@ -17,6 +17,8 @@ En este laboratorio llevas el modelo de sensación térmica que entrenaste en Co
 .
 ├── .devcontainer/
 │   └── devcontainer.json   ← describe la máquina del Codespace (Python + Docker)
+├── .github/workflows/
+│   └── publicar-imagen.yml ← publica tu imagen sola con cada push (Paso 4)
 ├── app/
 │   ├── main.py             ← la API (FastAPI)
 │   ├── modelo.joblib       ← el modelo entrenado en Colab
@@ -37,7 +39,7 @@ La pregunta de este paso es: **¿funciona mi código?** Todavía no usamos Docke
 ### 2.1 Crea tu copia del repositorio
 
 1. En la página de este repositorio, pulsa **Use this template → Create a new repository**.
-2. Créalo en **tu** cuenta. Así el Codespace usará tu cuota gratuita.
+2. Créalo en **tu** cuenta y déjalo **Public**. Así el Codespace usará tu cuota gratuita y, en el Paso 4, tu imagen podrá descargarse desde cualquier máquina.
 
 ### 2.2 Abre el Codespace
 
@@ -274,7 +276,7 @@ git commit -m "Agrega Dockerfile de la API"
 git push
 ```
 
-Abre tu repositorio en GitHub y verifica que `app/Dockerfile` aparece. **Ese repositorio es tu entrega.**
+Abre tu repositorio en GitHub y verifica que `app/Dockerfile` aparece. **Ese repositorio es tu entrega.** En el Paso 4 verás que este push hizo algo más.
 
 ### Errores frecuentes
 
@@ -295,7 +297,77 @@ Abre tu repositorio en GitHub y verifica que `app/Dockerfile` aparece. **Ese rep
 
 ---
 
+## Paso 4 — Tu imagen en cualquier máquina
+
+La pregunta de este paso es: **¿funciona en otra máquina?** Tu imagen ya está publicada: el push del Paso 3 se encargó de eso. Ahora la vas a encontrar y a ejecutar en una máquina que no tiene tu código.
+
+### 4.1 Mira lo que hizo tu push
+
+1. En tu repositorio de GitHub, abre la pestaña **Actions**.
+2. Verás una ejecución con el mensaje de tu commit (*"Agrega Dockerfile de la API"*). Haz clic en ella y luego en **publicar** para ver cada paso.
+3. Espera el ✅ verde (uno o dos minutos).
+
+GitHub leyó tu `Dockerfile`, construyó la imagen en sus servidores y la publicó. Es lo mismo que hiciste a mano con `docker build`, pero automático. Las instrucciones están en `.github/workflows/publicar-imagen.yml`: ábrelo y lee el nombre de cada paso.
+
+> **Esto es CI/CD** (integración y entrega continuas): cada `git push` construye y publica una versión nueva sin pasos manuales. Es la forma en que los equipos llevan su código a producción.
+
+### 4.2 Encuentra tu imagen
+
+En la página principal de tu repositorio, a la derecha, en **Packages**, haz clic en el paquete. Verás:
+
+- Las etiquetas `latest` y `1` (el número de la ejecución).
+- El comando `docker pull ghcr.io/<tu-usuario>/<tu-repo>:1`. **Copia de ahí el nombre de tu imagen.**
+- La etiqueta **Public**. Si dice *Private*: **Package settings → Change visibility → Public**.
+
+### 4.3 Abre una máquina limpia
+
+1. Ve a [github.com/codespaces](https://github.com/codespaces) → **Templates** → en la tarjeta **Blank**, pulsa **Use this template**.
+2. Se abre un Codespace **vacío**: no tiene tu código, ni tu modelo, ni tus librerías.
+
+### 4.4 Ejecuta tu imagen
+
+En la terminal de ese Codespace vacío (cambia el nombre por el de tu imagen, **todo en minúsculas**):
+
+```bash
+docker run --rm -p 8000:8000 ghcr.io/<tu-usuario>/<tu-repo>:latest
+```
+
+Primero verás *"Unable to find image … locally"*: esta máquina no tiene la imagen, así que Docker la **descarga** de GitHub y la ejecuta.
+
+Abre `/docs` desde la pestaña **Puertos** y prueba **POST /predecir** con `{"temperatura": 30, "humedad": 80}`. Debe dar la misma sensación térmica de siempre, con un `atendido_por` nuevo.
+
+### 4.5 Limpieza
+
+Detén la API con **Ctrl + C** y borra el Codespace en blanco: [github.com/codespaces](https://github.com/codespaces) → **⋯** → **Delete**.
+
+### 🧪 Desafío: ejecuta la imagen de un compañero
+
+Pídele a un compañero el nombre de su imagen y ejecútala en tu Codespace en blanco. ¿Necesitaste su código? ¿Qué Python y qué librerías usó?
+
+### ✅ Lista de verificación
+
+- [ ] La ejecución en **Actions** terminó con ✅ verde.
+- [ ] Tu paquete aparece en **Packages** y es **Public**.
+- [ ] La imagen corre en un Codespace en blanco con un solo `docker run`.
+- [ ] `/predecir` responde la misma sensación térmica que en los pasos anteriores.
+
+### Errores frecuentes
+
+| Síntoma | Causa probable | Solución |
+|---|---|---|
+| ❌ rojo en Actions | El `Dockerfile` tiene un error | Abre la ejecución, mira el paso en rojo, corrige el `Dockerfile` y vuelve a hacer push |
+| No aparece ninguna ejecución en Actions | El push no cambió nada dentro de `app/` | Verifica que `app/Dockerfile` está en GitHub; también puedes usar **Run workflow** en Actions |
+| `not found` o `manifest unknown` | Nombre de la imagen mal escrito, con mayúsculas o pegado dos veces | Cópialo de la página del paquete y revisa que termine en `:latest` |
+| `denied` o `unauthorized` | El paquete es privado | Hazlo público (4.2) |
+| Error 502 al abrir la página | La API no está corriendo en ese Codespace | Ejecuta de nuevo el `docker run` y recarga |
+
+### Para cerrar
+
+1. Compara los tres entornos donde corrió tu modelo: Colab, tu Codespace y el Codespace en blanco. ¿En cuáles tuviste que instalar librerías a mano?
+2. Si mañana cambias `main.py` y haces push, ¿qué pasos tendrías que repetir para que un compañero use la versión nueva?
+
+---
+
 ### Al terminar la sesión
 
 Detén tu Codespace para no gastar cuota: pulsa **F1** (o **Ctrl + Shift + P**), escribe `Stop Current Codespace` y presiona Enter. También puedes detenerlo desde [github.com/codespaces](https://github.com/codespaces), en el menú **⋯** de tu Codespace. Al final del curso puedes borrarlo desde [github.com/codespaces](https://github.com/codespaces).
-
